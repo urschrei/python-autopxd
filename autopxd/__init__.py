@@ -191,16 +191,14 @@ class AutoPxd(c_ast.NodeVisitor, PxdNode):
 
     def visit_Enum(self, node):
         items = []
-        if node.values:
-            for item in node.values.enumerators:
-                items.append(item.name)
+        for item in node.values.enumerators:
+            items.append(item.name)
         name = node.name
         type_decl = self.child_of(c_ast.TypeDecl, -2)
         if not name and type_decl:
             name = self.path_name('e')
         # add the enum definition to the top level
-        if len(items):
-            self.decl_stack[0].append(Enum(name, items))
+        self.decl_stack[0].append(Enum(name, items))
         if type_decl:
             self.append(name)
 
@@ -265,9 +263,7 @@ class AutoPxd(c_ast.NodeVisitor, PxdNode):
         decls = self.collect(node)
         if len(decls) != 1:
             return
-        names = str(decls[0]).split()
-        if names[0] != names[1]:
-            self.decl_stack[0].append(Type(decls[0]))
+        self.decl_stack[0].append(Type(decls[0]))
 
     def collect(self, node):
         decls = []
@@ -307,9 +303,15 @@ class AutoPxd(c_ast.NodeVisitor, PxdNode):
 
 
 def preprocess(code, extra_cpp_args=[]):
-    proc = subprocess.Popen([
-        'cpp', '-nostdinc', '-D__attribute__(x)=', '-I', BUILTIN_HEADERS_DIR,
-    ] + extra_cpp_args + ['-'], stdin=subprocess.PIPE, stdout=subprocess.PIPE)
+    if "darwin" in sys.platform:
+        args = [
+        'clang', '-E', '-nostdinc', '-D__attribute__(x)=', '-I' + '"' + BUILTIN_HEADERS_DIR + '"',
+        ]
+        proc = subprocess.Popen(args + extra_cpp_args + ['-'], stdin=subprocess.PIPE, stdout=subprocess.PIPE)
+    else:
+        proc = subprocess.Popen([
+            'cpp', '-nostdinc', '-D__attribute__(x)=', '-I', BUILTIN_HEADERS_DIR,
+        ] + extra_cpp_args + ['-'], stdin=subprocess.PIPE, stdout=subprocess.PIPE)
     result = []
     result.append(proc.communicate(input=code.encode('utf-8'))[0])
     while proc.poll() is None:
